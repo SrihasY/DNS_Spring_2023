@@ -26,7 +26,7 @@ echo "Deploying PCA:"
 ./deploy_PCA.sh $S3_buncket_name $Lambda_role_arn $AWS_account_id
 
 echo "Deploying ParamTune"
-./deploy_ParamTune.py $S3_buncket_name $Lambda_role_arn $AWS_account_id
+./deploy_ParamTune.sh $S3_buncket_name $Lambda_role_arn $AWS_account_id
 
 echo "Deploying CombineModels"
 ./deploy_CombineModels.sh $S3_buncket_name $Lambda_role_arn $AWS_account_id
