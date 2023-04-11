@@ -14,21 +14,18 @@ echo "Lambda_role_arn $Lambda_role_arn"
 echo "Step_role_arn $Step_role_arn"
 echo "AWS_account_id $AWS_account_id"
 
+echo "Deploying Packages"
+echo "Deploying resnet:"
+./deploy_model_lambda.sh 'resnet' $Lambda_role_arn $AWS_account_id
 
-
-# # Upload model files
-# aws s3 cp resnet/resnet18.mar s3://$S3_bucket_name/Inference_Pipeline/resnet18.mar
-
-# echo "Deploying Packages"
-# echo "Deploying PCA:"
+echo "Deploying language detector"
 ./deploy_model_lambda.sh 'langdetect' $Lambda_role_arn $AWS_account_id
 
-# echo "Deploying ParamTune"
-# ./deploy_ParamTune.sh $S3_bucket_name $Lambda_role_arn $AWS_account_id
+echo "Deploying german translator"
+./deploy_model_lambda.sh 'de2en' $Lambda_role_arn $AWS_account_id
 
-# echo "Deploying CombineModels"
-# ./deploy_CombineModels.sh $S3_bucket_name $Lambda_role_arn $AWS_account_id
-
+echo "Deploying spanish translator"
+./deploy_model_lambda.sh 'es2en' $Lambda_role_arn $AWS_account_id
 
 # pca_arn=$(aws lambda get-function --function-name PCA | grep Arn | grep PCA | awk -F'Arn\": "' '{print $2}' | awk -F'"' '{print $1}')
 # paramTune_arn=$(aws lambda get-function --function-name ParamTune | grep Arn | grep ParamTune | awk -F'Arn\": "' '{print $2}' | awk -F'"' '{print $1}')

@@ -142,6 +142,7 @@ class StepFunctionsStateMachine:
         try:
             response = self.stepfunctions_client.describe_state_machine(
                 stateMachineArn=self.state_machine_arn)
+            print(response)
             logger.info("Got metadata for state machine %s.", self.state_machine_name)
         except ClientError:
             logger.exception(

@@ -8,7 +8,7 @@ ARG DISTRO_VERSION="3.16"
 FROM amazoncorretto:${JAVA_RUNTIME_VERSION}-al2-jdk AS base_runtime
 
 RUN amazon-linux-extras enable python3.8
-RUN yum install -y python38 python38-devel openssl-devel && yum install -y libcurl-devel
+RUN yum install -y python38 python38-devel
 
 # # Install python
 ENV PYTHONUNBUFFERED=1
@@ -21,9 +21,10 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN python3.8 -m venv ${VIRTUAL_ENV}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-ENV LOG_LOCATION="/tmp/"
-ENV METRICS_LOCATION="/tmp/"
+ENV LOG_LOCATION="/tmp/tslogs"
+ENV METRICS_LOCATION="/tmp/tslogs"
 
+ENV HUGGINGFACE_HUB_CACHE="/tmp/hfcache"
 # # Install deps using a build image
 FROM base_runtime AS build-image
 
@@ -36,6 +37,13 @@ RUN yum install -y \
     make \
     cmake
 
+# Optional – Install the function's dependencies
+RUN pip install --no-cache wheel && pip install --no-cache torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+ --extra-index-url https://pypi.org/simple \
+ boto3 pyyaml captum torchserve torch-model-archiver torch-workflow-archiver \
+ regex sacremoses requests subword_nmt sentencepiece transformers \
+ awslambdaric
+
 ARG FUNCTION_DIR
 
 # Create function directory
@@ -43,13 +51,6 @@ RUN mkdir -p ${FUNCTION_DIR}
 
 # Copy handler function
 COPY app/* ${FUNCTION_DIR}
-# Optional – Install the function's dependencies
-ENV PYCURL_SSL_LIBRARY=openssl
-RUN pip install wheel && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu \
- --extra-index-url https://pypi.org/simple \
- boto3 pyyaml captum torchserve torch-model-archiver torch-workflow-archiver pycurl certifi \
- awslambdaric
-
 # Final lambda image
 FROM base_runtime AS final-image
 # #ENV JAVA_HOME="/usr/lib/jvm/java-1.8-openjdk"
@@ -61,6 +62,7 @@ FROM base_runtime AS final-image
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
 
+RUN mkdir -p /tmp/tslogs && mkdir -p /tmp/hfcache
 # Set working directory to function root directory
 WORKDIR ${FUNCTION_DIR}
 # Copy in the built dependencies

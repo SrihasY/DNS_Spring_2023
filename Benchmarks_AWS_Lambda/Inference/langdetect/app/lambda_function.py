@@ -41,12 +41,12 @@ def handler(event, context):
 	
 	buffer = ''
 	try:
-		buffer = requests.post(url="http://localhost:10000/predictions/langdetect", data=event["input"], headers={'Content-Type': 'text/plain'})
+		buffer = requests.post(url="http://localhost:10000/predictions/langdetect", data=event["input"].encode("utf-8"), headers={'Content-Type': 'text/plain'})
 	except requests.exceptions.RequestException as e:
 		print("Error occurred.", e)
 		return {"error": e.args()}
 	
-	return {"out":buffer.text}	
+	return {"out":buffer.text, "input":event["input"]}
 #context = "0,15"
 #os.system("taskset -p --cpu-list " + context  + " %d" % os.getpid())
 #  start_time = int(round(time.time() * 1000))

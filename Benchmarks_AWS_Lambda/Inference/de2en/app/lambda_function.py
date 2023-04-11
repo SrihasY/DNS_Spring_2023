@@ -5,26 +5,50 @@ from boto3.s3.transfer import TransferConfig
 import json
 import time
 import os
-import pycurl
-import certifi
+import requests
 from io import BytesIO
 
 from params import *
 
-
+def is_model_ready():
+	buffer = ''
+	try:
+		buffer = requests.get(url="http://localhost:10001/models/de2en")
+	except requests.exceptions.RequestException as e:
+		print("Error occurred, probably still starting up.", e)
+		return False
+	retdata = json.loads(buffer.text)
+	return retdata[0]["workers"][0]["status"]=="READY"
+ 
 def handler(event, context):
- if('dummy' in event) and (event['dummy'] == 1):
-      print("Dummy call for resnet, doing nothing")
-      return {"out":"Dummy call for resnet, doing nothing"}
- #set the number of workers
- 
- #start torchserve if not already running
- p = subprocess.Popen(["torchserve","--start","--ncs","--model-store","./","--ts-config","config.properties"])
- 
- return {"out":"hey wassup"}
-		    
- #context = "0,15"
- #os.system("taskset -p --cpu-list " + context  + " %d" % os.getpid())
+	s3_client = boto3.client(
+	's3',
+	aws_access_key_id=accessKeyId,
+	aws_secret_access_key=accessKey
+	)
+	bucket_name = bucketName
+	config = TransferConfig(use_threads=False)
+	if('dummy' in event) and (event['dummy'] == 1):
+		print("Dummy call for de2en, doing nothing")
+		return {"out":"Dummy call for de2en, doing nothing"}
+
+	#start torchserve if not already running
+	p = subprocess.Popen(["torchserve","--start","--ncs","--model-store","./","--ts-config","config.properties"])
+	
+	buffer = BytesIO()
+	while(not is_model_ready()):
+		time.sleep(5)
+	
+	buffer = ''
+	try:
+		buffer = requests.post(url="http://localhost:10000/predictions/de2en", data=event["input"].encode("utf-8"), headers={'Content-Type': 'text/plain'})
+	except requests.exceptions.RequestException as e:
+		print("Error occurred.", e)
+		return {"error": e.args()}
+	
+	return {"out":buffer.text}	
+#context = "0,15"
+#os.system("taskset -p --cpu-list " + context  + " %d" % os.getpid())
 #  start_time = int(round(time.time() * 1000))
 #  s3_client = boto3.client(
 #   's3',
@@ -53,7 +77,7 @@ def handler(event, context):
 # def predict(input):
 #     resnet_weights = ResNet18_Weights.IMAGENET1K_V1
 #     input_transformed = resnet_weights.transforms(input)
-    
+	
 #     model = resnet18(weights=resnet_weights)
 #     model.eval()
 #     output = model(input_transformed)

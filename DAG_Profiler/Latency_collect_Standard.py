@@ -29,6 +29,7 @@ def recursive_items(dictionary):
 
 
 def event_log_extract(events):
+	print(events)
 	function_durations_by_name = {}
 	#print(events)
 	events_id_dict = {}
@@ -37,7 +38,7 @@ def event_log_extract(events):
 		#event = json.loads(event_str)
 		#print(event)
 		events_id_dict[event["id"]] = event
-		if(event["type"] == "LambdaFunctionSucceeded" or event["type"] == "MapStateSucceeded"):
+		if(event["type"] == "TaskSucceeded" or event["type"] == "MapStateSucceeded"):
 			#print(event)
 			#print("**********************")
 			time_stamp_end = event["timestamp"]
@@ -85,23 +86,28 @@ def main():
 	inputs_file_name = args[2]
 	step_controler = StepFunctionsStateMachine(stepFunctions_client, DAG_arn)
 
-	memorySizes = [1000, 1800, 5000, 10240]
+	memorySizes = [4096, 10240]
+	memlang = [6000, 10240]
+	
 	print("collecting data for memory sizes of:")
-	print(memorySizes)
+	print(memorySizes, memlang)
 	
 	print("lambda function names/arns in the DAG")
 
 
 	# Extract all function arns from the DAG
-	describe_out = step_controler.describe()
-	#print(describe_out['definition'])
-	j_def = json.loads(describe_out['definition'])
-	describe_out_unrolled = recursive_items(j_def)
-	function_arns = []
-	for key, value in describe_out_unrolled:
-		if(key == "Resource"):
-			#print(key, value)
-			function_arns.append(value)
+	# describe_out = step_controler.describe()
+	# #print(describe_out['definition'])
+	# j_def = json.loads(describe_out['definition'])
+	# describe_out_unrolled = recursive_items(j_def)
+	function_arns = ["arn:aws:lambda:us-west-2:246098724710:function:langdetect", 
+                  "arn:aws:lambda:us-west-2:246098724710:function:es2en",
+                  "arn:aws:lambda:us-west-2:246098724710:function:de2en",
+                  "arn:aws:lambda:us-west-2:246098724710:function:resnet"]
+	# for key, value in describe_out_unrolled:
+	# 	if(key == "Resource"):
+	# 		#print(key, value)
+	# 		function_arns.append(value)
 	print("Identified the following functions in the DAG")
 	print(function_arns)
 
@@ -112,11 +118,12 @@ def main():
 	os.makedirs("profile_"+ profile_hash)
 	print("Created folder profile_"+ profile_hash + " with profiled runtimes and memory sizes")
 
-	for memSize in memorySizes:
+	for mindex in range(len(memorySizes)):
 		runtimes_by_name = {} # dictionary to save the runtimes of each function by name. Function_name -> List of runtimes
 		# change the memory sizes for all functions in the DAG
-		for func in function_arns:
-			response = lambda_client.update_function_configuration(FunctionName=func, MemorySize=int(memSize))
+		response = lambda_client.update_function_configuration(FunctionName=function_arns[0], MemorySize=int(memlang[mindex]))
+		for func in function_arns[1:]:
+			response = lambda_client.update_function_configuration(FunctionName=func, MemorySize=int(memorySizes[mindex]))
 	
 		time.sleep(5)
 		
@@ -161,9 +168,9 @@ def main():
 					runtimes_by_name[key].append(runtimes[key])
 		print("+++++++++++++++++++++++++++++++++++++++++++")				
 		print("+++++++++++++++++++++++++++++++++++++++++++")
-		print("For memory size of " + str(memSize))
+		print("For memory size of " + str(memorySizes[mindex]) + ", memlang: " + str(memlang[mindex]))
 		print(runtimes_by_name)
-		out_file_name = "profile_"+ profile_hash + "//" + "rsc_" + str(memSize) + "_" + str(memSize) + "_" + str(memSize) + ".txt"
+		out_file_name = "profile_"+ profile_hash + "//" + "rsc_" + str(memorySizes[mindex]) + "_" + str(memlang[mindex]) + ".txt"
 		num_of_runs = len(runtimes_by_name["E2E"])
 		
 		if("ObjectDetectUpload_" in runtimes_by_name):
@@ -175,11 +182,12 @@ def main():
 			
 		else:
 			f = open(out_file_name, 'w')
-			for run_id in range(num_of_runs):
-				line = "E2E:" + str(max(runtimes_by_name["E2E"][run_id]))
-				for key in runtimes_by_name:
-					line = line + " " + key + ":" + str(max(runtimes_by_name[key][run_id]))
-				f.write(line + "\n")
+			f.write(json.dumps(runtimes_by_name))
+			# for run_id in range(num_of_runs):
+			# 	line = "E2E:" + str(max(runtimes_by_name["E2E"][run_id]))
+			# 	for key in runtimes_by_name:
+			# 		line = line + " " + key + ":" + str(max(runtimes_by_name[key][run_id]))
+			# 	f.write(line + "\n")
 			f.close()
 
 main()

@@ -5,17 +5,15 @@ from boto3.s3.transfer import TransferConfig
 import json
 import time
 import os
-import pycurl
 import requests
 from io import BytesIO
-import shutil
 
 from params import *
 
 def is_model_ready():
 	buffer = ''
 	try:
-		buffer = requests.get(url="http://localhost:10001/models/resnet18")
+		buffer = requests.get(url="http://localhost:10001/models/es2en")
 	except requests.exceptions.RequestException as e:
 		print("Error occurred, probably still starting up.", e)
 		return False
@@ -31,22 +29,19 @@ def handler(event, context):
 	bucket_name = bucketName
 	config = TransferConfig(use_threads=False)
 	if('dummy' in event) and (event['dummy'] == 1):
-		print("Dummy call for resnet18, doing nothing")
-		return {"out":"Dummy call for resnet18, doing nothing"}
+		print("Dummy call for es2en, doing nothing")
+		return {"out":"Dummy call for es2en, doing nothing"}
 
 	#start torchserve if not already running
 	p = subprocess.Popen(["torchserve","--start","--ncs","--model-store","./","--ts-config","config.properties"])
 	
-	filename = "/tmp/bird.jpeg"
-	f = open(filename, "wb")
-	s3_client.download_fileobj(bucket_name, "bird.jpeg" , f, Config=config)
-	
+	buffer = BytesIO()
 	while(not is_model_ready()):
 		time.sleep(5)
-  
+	
 	buffer = ''
 	try:
-		buffer = requests.post(url="http://localhost:10000/predictions/resnet18", data=open('/tmp/bird.jpeg', 'rb').read())
+		buffer = requests.post(url="http://localhost:10000/predictions/es2en", data=event["input"].encode("utf-8"), headers={'Content-Type': 'text/plain'})
 	except requests.exceptions.RequestException as e:
 		print("Error occurred.", e)
 		return {"error": e.args()}
