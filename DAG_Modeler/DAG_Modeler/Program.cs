@@ -27,13 +27,20 @@ namespace DAG_Modeler
             Console.WriteLine();
             Console.WriteLine();
 
-  
+
             // Start Modeler for ChatBot app
             latency_percentile = 95;
             latency_target = 25000;
 
             Start_Model_ChatBot(latency_percentile, latency_target);
 
+            Console.WriteLine();
+            Console.WriteLine();
+
+            // SM Pipeline
+            latency_percentile = 95;
+            latency_target = 25000;
+            Start_Model_SMPipeline(latency_percentile, latency_target);
         }
 
         static void Start_Model_Video(double latency_percentile, double latency_target)
@@ -380,5 +387,134 @@ namespace DAG_Modeler
             return;
         }
 
+        static void Start_Model_SMPipeline(double latency_percentile, double latency_target)
+        {
+            Dictionary<string, Stage> all_train_stages_data = null;
+            all_train_stages_data = Data_Loader.load_stages_no_wait_for_max_SMPipeline(@"SMPipeline_Data/");
+
+            // Intial state
+            int resnet_min_memory = 2048;
+            int langdetect_min_memory = 4000;
+            int lang2en_min_memory = 4000;
+
+            CDF E2E_CDF = CDF_PDF_Manager.Get_E2E_CDF_SMPipeline(1, all_train_stages_data, resnet_min_memory, langdetect_min_memory, lang2en_min_memory);
+            double current_latency = double.MaxValue;
+            double current_cost = 0;
+            int index = -1;
+            for (int i = 0; i < E2E_CDF.Percentiles.Count; i++)
+            {
+                if (Math.Abs(latency_percentile - E2E_CDF.Percentiles[i]) < 1)
+                {
+                    current_latency = E2E_CDF.Values[i];
+                    index = i;
+                    break;
+                }
+            }
+            int count = 0;
+            CDF best_cdf = null;
+            double best_cost = double.MaxValue;
+            CDF best_cost_CDF = null;
+
+            while (current_latency > latency_target || (current_cost - best_cost) < (0.03 * best_cost))// - (latency_target*0.1))
+            {
+                var start = DateTime.Now;
+
+                Console.WriteLine("Evaluating: Resnet= " + resnet_min_memory + "\t" + " langdetect= " + langdetect_min_memory+ "\t" + " es2en/de2en= " + lang2en_min_memory);
+                    int resnet_min_memory_step = resnet_min_memory;
+                if (resnet_min_memory < 10240)
+                    resnet_min_memory_step = resnet_min_memory + 64;
+
+                int langdetect_min_memory_step = langdetect_min_memory;
+                if (langdetect_min_memory < 10240)
+                    langdetect_min_memory_step = langdetect_min_memory + 64;
+
+
+                int lang2en_min_memory_step = lang2en_min_memory;
+                if (lang2en_min_memory < 10240)
+                    lang2en_min_memory_step = lang2en_min_memory + 64;
+
+                var start1 = DateTime.Now;
+                CDF E2E_CDF_resnet_Step = CDF_PDF_Manager.Get_E2E_CDF_SMPipeline(1, all_train_stages_data, resnet_min_memory_step, langdetect_min_memory, lang2en_min_memory);
+                var end1 = DateTime.Now;
+                var diff1 = (end1 - start1).TotalMilliseconds.ToString();
+
+                start1 = DateTime.Now;
+                CDF E2E_CDF_langdetect_Step = CDF_PDF_Manager.Get_E2E_CDF_SMPipeline(1, all_train_stages_data, resnet_min_memory, langdetect_min_memory_step, lang2en_min_memory);
+                end1 = DateTime.Now;
+                var diff2 = (end1 - start1).TotalMilliseconds.ToString();
+
+                start1 = DateTime.Now;
+
+                CDF E2E_CDF_lang2en_Step = CDF_PDF_Manager.Get_E2E_CDF_SMPipeline(1, all_train_stages_data, resnet_min_memory, langdetect_min_memory, lang2en_min_memory_step);
+                end1 = DateTime.Now;
+                var diff3 = (end1 - start1).TotalMilliseconds.ToString();
+
+                int best_cdf_index = -1;
+                if ((E2E_CDF_resnet_Step.Values[index] < E2E_CDF_langdetect_Step.Values[index]) && (E2E_CDF_resnet_Step.Values[index] < E2E_CDF_lang2en_Step.Values[index]) && resnet_min_memory < 10240)
+                {
+                    best_cdf_index = 0;
+                    resnet_min_memory = resnet_min_memory_step;
+                    best_cdf = E2E_CDF_resnet_Step;
+                }
+                else if ((E2E_CDF_langdetect_Step.Values[index] < E2E_CDF_resnet_Step.Values[index]) && (E2E_CDF_langdetect_Step.Values[index] < E2E_CDF_lang2en_Step.Values[index]) && langdetect_min_memory < 10240)
+                {
+                    best_cdf_index = 1;
+                    langdetect_min_memory = langdetect_min_memory_step;
+                    best_cdf = E2E_CDF_langdetect_Step;
+                }
+                else if ((E2E_CDF_lang2en_Step.Values[index] < E2E_CDF_resnet_Step.Values[index]) && (E2E_CDF_lang2en_Step.Values[index] < E2E_CDF_langdetect_Step.Values[index]) && lang2en_min_memory < 10240)
+                {
+                    best_cdf_index = 2;
+                    lang2en_min_memory = lang2en_min_memory_step;
+                    best_cdf = E2E_CDF_lang2en_Step;
+                }
+                else if (langdetect_min_memory == 10240 && lang2en_min_memory < 10240 && resnet_min_memory < 10240)
+                {
+                    if (E2E_CDF_lang2en_Step.Values[index] < E2E_CDF_resnet_Step.Values[index])
+                    {
+                        best_cdf_index = 2;
+                        lang2en_min_memory = lang2en_min_memory_step;
+                        best_cdf = E2E_CDF_lang2en_Step;
+                    }
+                    else
+                    {
+                        best_cdf_index = 0;
+                        resnet_min_memory = resnet_min_memory_step;
+                        best_cdf = E2E_CDF_resnet_Step;
+                    }
+                }
+                else if (langdetect_min_memory == 10240 && lang2en_min_memory == 10240 && resnet_min_memory < 10240)
+                {
+                    best_cdf_index = 0;
+                    resnet_min_memory = resnet_min_memory_step;
+                    best_cdf = E2E_CDF_resnet_Step;
+                }
+                current_latency = best_cdf.Values[index];
+                if (current_latency < latency_target)
+                {
+                    if (current_cost < best_cost)
+                    {
+                        best_cost = current_cost;
+                        best_cost_CDF = best_cdf;
+                    }
+                }
+                Console.WriteLine("Percentile = " + index + " Best index = " + best_cdf_index + " with Latency= " + current_latency + " steps= " + count);
+                count++;
+                if (count > 10000)
+                {
+                    break;
+                }
+                var end = DateTime.Now;
+
+                var difference = (end - start).TotalMilliseconds.ToString();
+            }
+
+            Console.WriteLine("+++++++++++++++++++++++");
+            Console.WriteLine("SocialMedia Pipeline Best-First-Search (BFS) completed");
+            Console.WriteLine("Best VM Sizes: Resnet = " + resnet_min_memory + "mb\t" + " langdetect = " + langdetect_min_memory + "mb\t" + " es2en / de2en = " + lang2en_min_memory + "mb");
+            
+
+            return;
+        }
     }
 }

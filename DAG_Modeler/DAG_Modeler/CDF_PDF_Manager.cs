@@ -130,6 +130,25 @@ namespace DAG_Modeler
             return E2E_CDF;
         }
 
+        public static CDF Get_E2E_CDF_SMPipeline(int assume_independence, Dictionary<string, Stage> all_train_stages_data, int resnet_source, int langdetect_source, int lang2en_source)
+        {
+            PDF resnet_PDF = Get_Component_PDF_with_Interpolation(all_train_stages_data, "resnet", resnet_source);
+            PDF langdetect_PDF = Get_Component_PDF_with_Interpolation(all_train_stages_data, "langdetect", langdetect_source);
+            PDF lang2en_PDF = Get_Component_PDF_with_Interpolation(all_train_stages_data, "lang2en", lang2en_source);
+
+            CDF resnet_single_CDF = CDF_PDF_Manager.get_cdf(resnet_PDF);
+            CDF resnet_max_independent_CDF = CDF_PDF_Manager.get_max_CDF(resnet_single_CDF, 22);
+
+
+            PDF resnet_max_independent_PDF = CDF_PDF_Manager.get_pdf(resnet_max_independent_CDF);
+
+            PDF lang_PDF = CDF_PDF_Manager.get_convolution_2_PDFs(langdetect_PDF, resnet_max_independent_PDF);
+            PDF E2E_PDF = CDF_PDF_Manager.get_convolution_2_PDFs(lang_PDF, lang2en_PDF);
+
+            CDF E2E_CDF = CDF_PDF_Manager.get_cdf(E2E_PDF);
+            return E2E_CDF;
+        }
+
         public static int get_nearest_index(CDF input, double percentile)
         {
             double min_diff = double.MaxValue;

@@ -289,5 +289,73 @@ namespace DAG_Modeler
             }
             return allStages;
         }
+
+        public static Dictionary<string, Stage> load_stages_no_wait_for_max_SMPipeline(string path, bool test = false, bool add_layer = false)
+        {
+            Dictionary<string, Stage> allStages = new Dictionary<string, Stage>();
+
+            allStages.Add("resnet", new Stage() { Name = "resnet" });
+            allStages.Add("langdetect", new Stage() { Name = "langdetect" });
+            allStages.Add("lang2en", new Stage() { Name = "lang2en" });
+            allStages.Add("E2E", new Stage() { Name = "E2E" });
+            string[] dirs_in_dir = Directory.GetFiles(path);
+
+            for (int i = 0; i < dirs_in_dir.Length; i++)
+            {
+                string[] resources = dirs_in_dir[i].Split('_');
+                StreamReader sreader = new StreamReader(dirs_in_dir[i]);
+                List<double> resnet= new List<double>();
+                List<double> langdetect = new List<double>();
+                List<double> lang2en = new List<double>();
+                List<double> e2e = new List<double>();
+                while (!sreader.EndOfStream)
+                {
+                    string line = sreader.ReadLine();
+                    int resnet_value = 0;
+                    int langdetect_value = 0;
+                    int lang2en_value = 0;
+                    int E2E_value = 0;
+                    string[] parts = line.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
+
+                    foreach (string p in parts)
+                    {
+                        string[] sub_parts = p.Split(':');
+                        if (sub_parts[0] == "resnet")
+                        {
+                            resnet_value = Int32.Parse(sub_parts[1]);
+                        }
+                        else if (sub_parts[0] == "langdetect")
+                        {
+                            langdetect_value = Int32.Parse(sub_parts[1]);
+                        }
+                        else if (sub_parts[0] == "lang2en")
+                        {
+                            lang2en_value = Int32.Parse(sub_parts[1]);
+                        }
+                        else if (sub_parts[0] == "E2E")
+                        {
+                            E2E_value = Int32.Parse(sub_parts[1]);
+                        }
+                    }
+                    resnet.Add(resnet_value);
+                    langdetect.Add(langdetect_value);
+                    lang2en.Add(lang2en_value);
+                    e2e.Add(E2E_value);
+                }
+                allStages["resnet"].Resource_to_latency_list.Add(Int32.Parse(resources[2]), resnet);
+                allStages["langdetect"].Resource_to_latency_list.Add(Int32.Parse(resources[3]), langdetect);
+                allStages["lang2en"].Resource_to_latency_list.Add(Int32.Parse(resources[3]), lang2en);
+                allStages["E2E"].Resource_to_latency_list.Add(Int32.Parse(resources[2]+resources[3]), e2e);
+
+            }
+
+
+            foreach (Stage s in allStages.Values)
+            {
+                s.fill_PDF_CDF();
+                s.extractMeanStd();
+            }
+            return allStages;
+        }
     }
 }
