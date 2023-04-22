@@ -39,7 +39,7 @@ namespace DAG_Modeler
 
             // SM Pipeline
             latency_percentile = 95;
-            latency_target = 25000;
+            latency_target = 1500;
             Start_Model_SMPipeline(latency_percentile, latency_target);
         }
 

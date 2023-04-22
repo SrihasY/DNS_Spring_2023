@@ -136,16 +136,14 @@ namespace DAG_Modeler
             PDF langdetect_PDF = Get_Component_PDF_with_Interpolation(all_train_stages_data, "langdetect", langdetect_source);
             PDF lang2en_PDF = Get_Component_PDF_with_Interpolation(all_train_stages_data, "lang2en", lang2en_source);
 
-            CDF resnet_single_CDF = CDF_PDF_Manager.get_cdf(resnet_PDF);
-            CDF resnet_max_independent_CDF = CDF_PDF_Manager.get_max_CDF(resnet_single_CDF, 22);
+            CDF resnet_CDF = CDF_PDF_Manager.get_cdf(resnet_PDF);
+            // CDF resnet_max_independent_CDF = CDF_PDF_Manager.get_max_CDF(resnet_single_CDF, 22);
 
+            PDF lang_PDF = CDF_PDF_Manager.get_convolution_2_PDFs(langdetect_PDF, lang2en_PDF);
+            CDF lang_CDF = CDF_PDF_Manager.get_cdf(lang_PDF);
+            CDF E2E_CDF = CDF_PDF_Manager.get_max_joint_CDF(lang_CDF, 2, resnet_CDF);
 
-            PDF resnet_max_independent_PDF = CDF_PDF_Manager.get_pdf(resnet_max_independent_CDF);
-
-            PDF lang_PDF = CDF_PDF_Manager.get_convolution_2_PDFs(langdetect_PDF, resnet_max_independent_PDF);
-            PDF E2E_PDF = CDF_PDF_Manager.get_convolution_2_PDFs(lang_PDF, lang2en_PDF);
-
-            CDF E2E_CDF = CDF_PDF_Manager.get_cdf(E2E_PDF);
+            // CDF E2E_CDF = CDF_PDF_Manager.get_cdf(E2E_PDF);
             return E2E_CDF;
         }
 
