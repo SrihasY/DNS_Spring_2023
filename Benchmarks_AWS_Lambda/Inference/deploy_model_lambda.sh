@@ -41,7 +41,7 @@ sleep 60
 
 if [ $func_name = "langdetect" ]
 then
-    aws lambda update-function-configuration --function-name  $func_name --memory-size 3000 --timeout 180 --ephemeral-storage 2048
+    aws lambda update-function-configuration --function-name  $func_name --memory-size 4000 --timeout 240 --ephemeral-storage 2048
 else
-    aws lambda update-function-configuration --function-name  $func_name --memory-size 2048 --timeout 120
+    aws lambda update-function-configuration --function-name  $func_name --memory-size 2048 --timeout 180
 fi

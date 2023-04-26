@@ -1,15 +1,11 @@
 import boto3
 import subprocess
-import numpy as np
 from boto3.s3.transfer import TransferConfig
 import json
 import time
-import os
-import pycurl
-import requests
-from io import BytesIO
-import shutil
 
+import requests
+from multiprocessing import Process, Pipe
 from params import *
 
 def is_model_ready():
@@ -21,7 +17,30 @@ def is_model_ready():
 		return False
 	retdata = json.loads(buffer.text)
 	return retdata[0]["workers"][0]["status"]=="READY"
- 
+
+def update_workers(bundle_size):
+	buffer = ''
+	try:
+		buffer = requests.put(url="http://localhost:10001/models/resnet18", params={"synchronous":True,"min_worker":bundle_size, "max_worker":bundle_size})
+	except requests.exceptions.RequestException as e:
+		print("Error occurred, probably still starting up.", e)
+		return False
+	retdata = json.loads(buffer.text)
+	return retdata
+
+def make_request(conn):
+	buffer = ''
+	try:
+		buffer = requests.post(url="http://localhost:10000/predictions/resnet18", data=open('/tmp/bird.jpeg', 'rb').read())
+	except requests.exceptions.RequestException as e:
+		print("Error occurred.", e)
+		conn.send(e.args())
+		conn.close()
+		return
+	conn.send(buffer.text)
+	conn.close()
+	return
+
 def handler(event, context):
 	s3_client = boto3.client(
 	's3',
@@ -36,22 +55,38 @@ def handler(event, context):
 
 	#start torchserve if not already running
 	p = subprocess.Popen(["torchserve","--start","--ncs","--model-store","./","--ts-config","config.properties"])
-	
+  
 	filename = "/tmp/bird.jpeg"
 	f = open(filename, "wb")
 	s3_client.download_fileobj(bucket_name, "bird.jpeg" , f, Config=config)
 	
 	while(not is_model_ready()):
 		time.sleep(5)
-  
-	buffer = ''
-	try:
-		buffer = requests.post(url="http://localhost:10000/predictions/resnet18", data=open('/tmp/bird.jpeg', 'rb').read())
-	except requests.exceptions.RequestException as e:
-		print("Error occurred.", e)
-		return {"error": e.args()}
+
+	bundle_size = 1
+	if('bundle_size' in event):
+		bundle_size = event['bundle_size']
+		print(update_workers(event['bundle_size']))
 	
-	return {"out":buffer.text}
+	responses = []
+	processes = []
+	parent_conns = []
+	for _ in range(bundle_size):
+		parent_connection, child_conn = Pipe()
+		parent_conns.append(parent_connection)
+		processes.append(Process(target=make_request, args=(child_conn,)))
+	
+	for p in processes:
+		p.start()
+	
+	for p in processes:
+		p.join()
+   
+	for parent_connection in parent_conns:
+		responses.append(parent_connection.recv())
+	# with Pool(bundle_size) as p:
+	# 	responses = p.starmap(make_request, [[]] * bundle_size)
+	return {"out":responses}
 #context = "0,15"
 #os.system("taskset -p --cpu-list " + context  + " %d" % os.getpid())
 #  start_time = int(round(time.time() * 1000))
