@@ -73,8 +73,8 @@ def main():
 		return
 
 	if(len(args) == 1):
-		 print("Please enter the number of profiling runs as the second argument")
-		 return
+		print("Please enter the number of profiling runs as the second argument")
+		return
 
 	if(len(args) == 2):
 		print("Please enter the inputs.json file name as the third argument")
@@ -86,11 +86,12 @@ def main():
 	inputs_file_name = args[2]
 	step_controler = StepFunctionsStateMachine(stepFunctions_client, DAG_arn)
 
-	memorySizes = [4096, 10240]
-	memlang = [6000, 10240]
+	memResnet = [2048]
+	memlang = [5632]
+	memTranslate = [4096]
 	
 	print("collecting data for memory sizes of:")
-	print(memorySizes, memlang)
+	print(memResnet, memlang, memTranslate)
 	
 	print("lambda function names/arns in the DAG")
 
@@ -118,13 +119,13 @@ def main():
 	os.makedirs("profile_"+ profile_hash)
 	print("Created folder profile_"+ profile_hash + " with profiled runtimes and memory sizes")
 
-	for mindex in range(len(memorySizes)):
+	for mindex in range(len(memlang)):
 		runtimes_by_name = {} # dictionary to save the runtimes of each function by name. Function_name -> List of runtimes
 		# change the memory sizes for all functions in the DAG
 		response = lambda_client.update_function_configuration(FunctionName=function_arns[0], MemorySize=int(memlang[mindex]))
-		for func in function_arns[1:]:
-			response = lambda_client.update_function_configuration(FunctionName=func, MemorySize=int(memorySizes[mindex]))
-	
+		for func in function_arns[1:3]:
+			response = lambda_client.update_function_configuration(FunctionName=func, MemorySize=int(memTranslate[mindex]))
+		response = lambda_client.update_function_configuration(FunctionName=function_arns[3], MemorySize=int(memResnet[mindex]))
 		time.sleep(5)
 		
 		# load profiling runs' inputs from file
@@ -168,9 +169,9 @@ def main():
 					runtimes_by_name[key].append(runtimes[key])
 		print("+++++++++++++++++++++++++++++++++++++++++++")				
 		print("+++++++++++++++++++++++++++++++++++++++++++")
-		print("For memory size of " + str(memorySizes[mindex]) + ", memlang: " + str(memlang[mindex]))
+		print("For memory size of " + str(memResnet[mindex]) + ", memlang: " + str(memlang[mindex]) + ", memtranslate: " + str(memTranslate[mindex]))
 		print(runtimes_by_name)
-		out_file_name = "profile_"+ profile_hash + "//" + "rsc_" + str(memorySizes[mindex]) + "_" + str(memlang[mindex]) + ".txt"
+		out_file_name = "profile_"+ profile_hash + "//" + "rsc_" + str(memResnet[mindex]) + "_" + str(memlang[mindex]) + "_" + str(memTranslate[mindex]) + ".txt"
 		num_of_runs = len(runtimes_by_name["E2E"])
 		
 		if("ObjectDetectUpload_" in runtimes_by_name):
