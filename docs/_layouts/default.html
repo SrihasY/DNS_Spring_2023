@@ -12,15 +12,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width">
     <link rel="stylesheet" href="{{ '/assets/css/style.css?v=' | append: site.github.build_revision | relative_url }}">
+    <script src="https://cdn.jsdelivr.net/npm/darkreader@4.9.31/darkreader.min.js"></script>
+    <script>
+        DarkReader.enable();
+    </script>
     {% include head-custom.html %}
   </head>
   <body style="margin:0">  
     <header class="page-header" role="banner">
-      <h1 class="project-name">{{ page.title | default: site.title | default: site.github.repository_name }}</h1>
-      <h2 class="project-tagline">{{ page.description | default: site.description | default: site.github.project_tagline }}</h2>
+      <h1 style="color: #000000;" class="project-name" >{{ page.title | default: site.title | default: site.github.repository_name }}</h1>
+      <h2 style="color: #000000;" class="project-tagline">{{ page.description | default: site.description | default: site.github.project_tagline }}</h2>
     </header>
 
-    <main id="content" class="main-content" role="main" style="flex-grow:1;height:100vh">
+    <main id="content" class="main-content" role="main">
       <object data="assets/report.pdf" type="application/pdf" style="min-height:100vh;width:100%">
         <p>Unable to display PDF file. <a href="assets/report.pdf">Download</a> instead.</p>
       </object>
