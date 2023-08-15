@@ -1,5 +1,5 @@
 # Project Teammates
-Srihas Yarlagadda - syarlagadda37@gatech.edu
+Srihas Yarlagadda - syarlagadda37@gatech.edu  
 Aniruddha Mysore - animysore@gatech.edu
 
 > Georgia Institute of Technology
