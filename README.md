@@ -1,4 +1,10 @@
+# Project Teammates
+Srihas Yarlagadda - syarlagadda37@gatech.edu
+Aniruddha Mysore - animysore@gatech.edu
 
+> Georgia Institute of Technology
+
+The following instructions are from the original artifact repository.
 # OSDI '22: Orion
 Keywords: Serverless DAGs, fusion, prewarming, VM sizes
 
